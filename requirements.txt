@@ -3,6 +3,7 @@ Flask-SocketIO==5.3.6
 requests==2.32.3
 eventlet==0.33.3
 dnspython==2.3.0
+torch==2.9.0
 pyannote.audio==4.0.1
 soundfile==0.13.1
 ffmpeg-python==0.2.0
