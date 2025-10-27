@@ -1,12 +1,15 @@
 from flask import Flask, jsonify, request
 from pyannote.audio import Pipeline
+from pyannote.audio.pipelines import SpeakerDiarization
 import os
 
 app = Flask(__name__)
 
 # --- Cargar el pipeline de diarización ---
 HF_TOKEN = os.getenv("HF_TOKEN")  
-pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1", use_auth_token=HF_TOKEN)
+pipeline = SpeakerDiarization.from_pretrained("pyannote/speaker-diarization-community-1")
+# pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1", use_auth_token=HF_TOKEN)
+
 
 @app.route('/')
 def home():
