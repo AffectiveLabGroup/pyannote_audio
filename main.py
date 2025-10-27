@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
 from pyannote.audio import Pipeline
 from pyannote.audio.pipelines import SpeakerDiarization
+import torch
+import torchaudio
 import os
 
 app = Flask(__name__)
