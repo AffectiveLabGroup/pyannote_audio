@@ -7,3 +7,4 @@ torch==2.9.0
 pyannote.audio==4.0.1
 soundfile==0.13.1
 ffmpeg-python==0.2.0
+gunicorn==23.0.0

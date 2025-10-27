@@ -18,14 +18,6 @@ model = Model.from_pretrained("pyannote/embedding", use_auth_token=HF_TOKEN)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
-
-# Almacén de mensajes
-messages = {
-    "robot_lola": "",
-    "robot_lolo": "",
-    "humano": ""
-}
-
 @app.route('/')
 def home():
     return "Servidor de reconocimiento de speakers activo 🚀"
