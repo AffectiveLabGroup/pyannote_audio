@@ -1,5 +1,4 @@
-import eventlet
-eventlet.monkey_patch()
+
 
 from flask import Flask, jsonify, request
 from pyannote.audio import Model
@@ -87,8 +86,6 @@ def recognize():
 #        print("Error:", e)
 #        return "error", 500
 
-
 if __name__ == "__main__":
-    import eventlet
-    eventlet.monkey_patch()
-    eventlet.wsgi.server(eventlet.listen(("0.0.0.0", 5000)), app)
+    from flask import Flask
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
