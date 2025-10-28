@@ -4,13 +4,21 @@ from pyannote.audio.pipelines import SpeakerDiarization
 import torch
 import torchaudio
 import os
+from pydub import AudioSegment
+import librosa
+import numpy as np
+from scipy.spatial.distance import euclidean
 
 app = Flask(__name__)
 
 # --- Cargar el pipeline de diarización ---
-HF_TOKEN = os.getenv("HF_TOKEN")  
+HF_TOKEN = os.getenv("HF_TOKEN")
 pipeline = SpeakerDiarization.from_pretrained("pyannote/speaker-diarization-community-1")
 # pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1", use_auth_token=HF_TOKEN)
+
+voces_conocidas = {
+    "Paula": extraer_firma("/voices/paula_ref.wav"),
+}
 
 
 @app.route('/')
@@ -24,16 +32,17 @@ def diarize():
         temp_path = "temp.wav"
         audio_file.save(temp_path)
 
-        # Ejecutar diarización
         diarization = pipeline(temp_path)
 
-        # Convertir resultados a formato JSON
         segments = []
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
+        for idx, (turn, _, speaker) in enumerate(diarization.itertracks(yield_label=True)):
+            archivo_fragmento = guardar_segmento(temp_path, turn.start, turn.end, speaker, idx)
+            nombre_real = reconocer_voz(archivo_fragmento)
             segments.append({
-                "speaker": speaker,
+                "speaker": nombre_real,
                 "start": round(turn.start, 2),
-                "end": round(turn.end, 2)
+                "end": round(turn.end, 2),
+                "file": archivo_fragmento
             })
 
         os.remove(temp_path)
@@ -42,6 +51,29 @@ def diarize():
     except Exception as e:
         print("Error:", e)
         return jsonify({"error": str(e)}), 500
+
+def guardar_segmento(audio_path, start, end, speaker, idx):
+    audio = AudioSegment.from_wav(audio_path)
+    fragmento = audio[int(start*1000):int(end*1000)]  # convertir a milisegundos
+    nombre_archivo = f"{speaker}_{idx}.wav"
+    fragmento.export(nombre_archivo, format="wav")
+    return nombre_archivo
+
+def extraer_firma(audio_file):
+    y, sr = librosa.load(audio_file, sr=None)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    return np.mean(mfcc, axis=1)  # vector de 13 números
+
+def reconocer_voz(segmento_wav):
+    firma = extraer_firma(segmento_wav)
+    mejor_match = None
+    distancia_min = float("inf")
+    for nombre, firma_conocida in voces_conocidas.items():
+        dist = euclidean(firma, firma_conocida)
+        if dist < distancia_min:
+            distancia_min = dist
+            mejor_match = nombre
+    return mejor_match
 
 
 if __name__ == "__main__":

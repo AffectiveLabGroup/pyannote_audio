@@ -1,1 +1,2 @@
 # pyannote_audio
+HF_TOKEN = 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
