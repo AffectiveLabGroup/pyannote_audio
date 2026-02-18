@@ -1,23 +1,58 @@
 from flask import Flask, jsonify, request
-from pyannote.audio import Pipeline
-from pyannote.audio.pipelines import SpeakerDiarization
 import torch
 import torchaudio
+from pyannote.audio import Pipeline
+from pyannote.audio.pipelines import SpeakerDiarization
 import os
 from pydub import AudioSegment
 import librosa
 import numpy as np
 from scipy.spatial.distance import euclidean
+import huggingface_hub
+from resemblyzer import VoiceEncoder, preprocess_wav
+import numpy as np
 
 app = Flask(__name__)
 
-# --- Cargar el pipeline de diarización ---
 HF_TOKEN = os.getenv("HF_TOKEN")
-pipeline = SpeakerDiarization.from_pretrained("pyannote/speaker-diarization-community-1")
-# pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1", use_auth_token=HF_TOKEN)
+
+# Registrar el token globalmente
+huggingface_hub.login(HF_TOKEN)
+
+pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token=HF_TOKEN)
+
+encoder = VoiceEncoder()
+
+def extraer_firma(file_path):
+    wav = preprocess_wav(file_path)
+    emb = encoder.embed_utterance(wav)
+    return emb
 
 voces_conocidas = {
-    "Paula": extraer_firma("/voices/paula_ref.wav"),
+    "Paula": np.mean([
+        extraer_firma("/voices/paula_ref.wav"),
+        extraer_firma("/voices/paula_ref2.wav"),
+        extraer_firma("/voices/paula_ref3.wav"),
+        extraer_firma("/voices/paula_ref4.wav"),
+    ], axis=0),
+    "Loreto": np.mean([
+        extraer_firma("/voices/loreto_ref.wav"),
+        extraer_firma("/voices/loreto_ref2.wav"),
+        extraer_firma("/voices/loreto_ref3.wav"),
+        extraer_firma("/voices/loreto_ref4.wav"),
+    ], axis=0),
+    "Liany": np.mean([
+        extraer_firma("/voices/liany_ref.wav"),
+        extraer_firma("/voices/liany_ref2.wav"),
+        extraer_firma("/voices/liany_ref3.wav"),
+        extraer_firma("/voices/liany_ref4.wav"),
+    ], axis=0),
+    "Juan Jesus": np.mean([
+        extraer_firma("/voices/juanje_ref.wav"),
+        extraer_firma("/voices/juanje_ref2.wav"),
+        extraer_firma("/voices/juanje_ref3.wav"),
+        extraer_firma("/voices/juanje_ref4.wav"),
+    ], axis=0)
 }
 
 
@@ -58,11 +93,6 @@ def guardar_segmento(audio_path, start, end, speaker, idx):
     nombre_archivo = f"{speaker}_{idx}.wav"
     fragmento.export(nombre_archivo, format="wav")
     return nombre_archivo
-
-def extraer_firma(audio_file):
-    y, sr = librosa.load(audio_file, sr=None)
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    return np.mean(mfcc, axis=1)  # vector de 13 números
 
 def reconocer_voz(segmento_wav):
     firma = extraer_firma(segmento_wav)

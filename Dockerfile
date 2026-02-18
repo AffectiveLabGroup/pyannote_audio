@@ -1,5 +1,5 @@
 # Imagen base estable con soporte de PyTorch
-FROM python:3.10-slim
+FROM python:3.10-bullseye
 
 # Evitar prompts interactivos
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,6 +20,8 @@ RUN pip install --upgrade pip
 
 # Instalar dependencias de Python
 RUN pip install -r requirements.txt
+#RUN pip install --use-feature=fast-deps -r requirements.txt
+
 
 # Copiar el resto del código
 COPY . .
