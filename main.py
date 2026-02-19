@@ -30,28 +30,28 @@ def extraer_firma(file_path):
 
 voces_conocidas = {
     "Paula": np.mean([
-        extraer_firma("/voices/paula_ref.wav"),
-        extraer_firma("/voices/paula_ref2.wav"),
-        extraer_firma("/voices/paula_ref3.wav"),
-        extraer_firma("/voices/paula_ref4.wav"),
+        extraer_firma("voices/paula_ref.wav"),
+        extraer_firma("voices/paula_ref2.wav"),
+        extraer_firma("voices/paula_ref3.wav"),
+        extraer_firma("voices/paula_ref4.wav"),
     ], axis=0),
     "Loreto": np.mean([
-        extraer_firma("/voices/loreto_ref.wav"),
-        extraer_firma("/voices/loreto_ref2.wav"),
-        extraer_firma("/voices/loreto_ref3.wav"),
-        extraer_firma("/voices/loreto_ref4.wav"),
+        extraer_firma("voices/loreto_ref.wav"),
+        extraer_firma("voices/loreto_ref2.wav"),
+        extraer_firma("voices/loreto_ref3.wav"),
+        extraer_firma("voices/loreto_ref4.wav"),
     ], axis=0),
     "Liany": np.mean([
-        extraer_firma("/voices/liany_ref.wav"),
-        extraer_firma("/voices/liany_ref2.wav"),
-        extraer_firma("/voices/liany_ref3.wav"),
-        extraer_firma("/voices/liany_ref4.wav"),
+        extraer_firma("voices/liany_ref.wav"),
+        extraer_firma("voices/liany_ref2.wav"),
+        extraer_firma("voices/liany_ref3.wav"),
+        extraer_firma("voices/liany_ref4.wav"),
     ], axis=0),
     "Juan Jesus": np.mean([
-        extraer_firma("/voices/juanje_ref.wav"),
-        extraer_firma("/voices/juanje_ref2.wav"),
-        extraer_firma("/voices/juanje_ref3.wav"),
-        extraer_firma("/voices/juanje_ref4.wav"),
+        extraer_firma("voices/juanje_ref.wav"),
+        extraer_firma("voices/juanje_ref2.wav"),
+        extraer_firma("voices/juanje_ref3.wav"),
+        extraer_firma("voices/juanje_ref4.wav"),
     ], axis=0)
 }
 
@@ -104,6 +104,36 @@ def reconocer_voz(segmento_wav):
             distancia_min = dist
             mejor_match = nombre
     return mejor_match
+
+
+import uuid
+
+@app.route("/upload", methods=["POST"])
+def upload_audio():
+    try:
+        audio_file = request.files["audio"]
+
+        if not audio_file:
+            return jsonify({"error": "No se envió archivo"}), 400
+
+        # Generar nombre único
+        file_id = str(uuid.uuid4())
+        filename = f"{file_id}.wav"
+
+        save_path = os.path.join("uploads", filename)
+
+        os.makedirs("uploads", exist_ok=True)
+        audio_file.save(save_path)
+
+        return jsonify({
+            "message": "Archivo guardado correctamente",
+            "file_id": file_id,
+            "filename": filename
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
