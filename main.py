@@ -11,6 +11,9 @@ from scipy.spatial.distance import euclidean
 import huggingface_hub
 from resemblyzer import VoiceEncoder, preprocess_wav
 import numpy as np
+from io import BytesIO
+import soundfile as sf
+
 
 app = Flask(__name__)
 
@@ -130,6 +133,70 @@ def upload_audio():
             "file_id": file_id,
             "filename": filename
         }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
+
+@app.route("/diarize_live", methods=["POST"])
+def diarize_live():
+    try:
+        audio_file = request.files.get("audio")
+
+        if not audio_file:
+            return jsonify({"error": "No se envió archivo"}), 400
+
+        # Leer audio en memoria
+        audio_bytes = BytesIO(audio_file.read())
+
+        # Convertir a numpy array
+        audio_bytes.seek(0)
+        wav, sr = sf.read(audio_bytes)
+
+        wav = wav.astype("float32")
+
+        # Validar duración mínima (2 segundos mínimo)
+        if len(wav) < sr * 2:
+            return jsonify({"error": "Audio demasiado corto"}), 400
+
+        # === DIARIZACIÓN ===
+        # Pyannote puede trabajar con diccionario en memoria
+        diarization = pipeline({"waveform": torch.from_numpy(wav).unsqueeze(0), "sample_rate": sr})
+
+        turn, _, speaker = next(diarization.itertracks(yield_label=True))
+
+        # Extraer segmento detectado
+        start_sample = int(turn.start * sr)
+        end_sample = int(turn.end * sr)
+        fragmento = wav[start_sample:end_sample]
+
+        # Validar segmento mínimo
+        if len(fragmento) < sr:
+            return jsonify({"error": "Segmento demasiado corto"}), 400
+
+        # === RECONOCIMIENTO DE VOZ ===
+        firma = extraer_firma(fragmento)
+
+        mejor_match = None
+        distancia_min = float("inf")
+
+        for nombre, firma_conocida in voces_conocidas.items():
+            dist = euclidean(firma, firma_conocida)
+            if dist < distancia_min:
+                distancia_min = dist
+                mejor_match = nombre
+
+        if mejor_match is None:
+            mejor_match = "desconocido"
+
+        respuesta = f"Hola {mejor_match}, ¿cómo estás?"
+
+        return jsonify({
+            "respuesta": respuesta,
+            "speaker": mejor_match,
+            "distancia": float(distancia_min)
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
