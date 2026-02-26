@@ -139,8 +139,8 @@ def upload_audio():
     
 
 
-@app.route("/diarize_live", methods=["POST"])
-def diarize_live():
+@app.route("/diarize_live_v1", methods=["POST"])
+def diarize_live_v1():
     try:
         audio_file = request.files.get("audio")
 
@@ -200,7 +200,88 @@ def diarize_live():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+ 
 
+@app.route("/diarize_live", methods=["POST"])
+def diarize_live():
+    temp_segment_path = "temp_segment.wav"  # archivo temporal para reconocimiento
+
+    try:
+        audio_file = request.files.get("audio")
+
+        if not audio_file:
+            return jsonify({"error": "No se envió archivo"}), 400
+
+        # =========================
+        # LEER AUDIO EN MEMORIA
+        # =========================
+        audio_bytes = BytesIO(audio_file.read())
+        audio_segment = AudioSegment.from_file(audio_bytes)
+
+        # =========================
+        # NORMALIZACIÓN GLOBAL
+        # =========================
+        audio_segment = (
+            audio_segment
+            .set_frame_rate(16000)
+            .set_channels(1)
+            .set_sample_width(2)  # 16 bits
+        )
+
+        # Convertir a numpy float32
+        wav = np.array(audio_segment.get_array_of_samples()).astype(np.float32)
+        wav = wav / 32768.0  # normalizar rango -1 a 1
+        sr = 16000
+
+        # Validar duración mínima (2 segundos)
+        if len(wav) < sr * 2:
+            return jsonify({"error": "Audio demasiado corto"}), 400
+
+        # =========================
+        # DIARIZACIÓN
+        # =========================
+        waveform = torch.from_numpy(wav).unsqueeze(0).float()
+        diarization = pipeline({
+            "waveform": waveform,
+            "sample_rate": sr
+        })
+
+        segments = list(diarization.itertracks(yield_label=True))
+        if not segments:
+            return jsonify({"error": "No se detectó voz"}), 400
+
+        # Elegir segmento más largo
+        turn, _, speaker = max(segments, key=lambda x: x[0].end - x[0].start)
+        start_sample = int(turn.start * sr)
+        end_sample = int(turn.end * sr)
+        fragmento = wav[start_sample:end_sample]
+
+        if len(fragmento) < sr:
+            return jsonify({"error": "Segmento demasiado corto"}), 400
+
+        # =========================
+        # RECONOCIMIENTO DE VOZ
+        # =========================
+        # Guardar temporalmente para usar tu función existente
+        sf.write(temp_segment_path, fragmento, sr, format="WAV")
+        nombre_real = reconocer_voz(temp_segment_path)
+
+        respuesta = f"Hola {nombre_real}, ¿cómo estás?"
+
+        return jsonify({
+            "respuesta": respuesta,
+            "speaker": nombre_real,
+            "inicio": round(turn.start, 2),
+            "fin": round(turn.end, 2)
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        # Limpieza segura
+        if os.path.exists(temp_segment_path):
+            os.remove(temp_segment_path)
 
 
 if __name__ == "__main__":
